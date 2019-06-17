@@ -9,6 +9,7 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.chat.*;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
+import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.registry.Registry;
@@ -38,14 +39,8 @@ class LocateBiomeCommand {
 			}
 
 			if (biomePos == null) {
-				if (source.getEntity() instanceof PlayerEntity) {
-					try {
-						source.getPlayer().sendChatMessage(new TranslatableComponent("commands.locatebiome.fail", biomeName, LocateBiome.timeout / 1000),
-								ChatMessageType.GAME_INFO);
-					} catch (CommandSyntaxException e) {
-						e.printStackTrace();
-					}
-				}
+				source.sendFeedback(new TranslatableComponent(source.getMinecraftServer() instanceof DedicatedServer ? "optimizeWorld.stage.failed" : "commands.locatebiome.fail",
+						biomeName, LocateBiome.timeout / 1000).applyFormat(ChatFormat.RED), true);
 				return;
 			}
 			BlockPos finalBiomePos = biomePos;
@@ -81,7 +76,7 @@ class LocateBiomeCommand {
 			if (previous == 3)
 				previous = 0;
 			String dots = (previous == 0 ? "." : previous == 1 ? ".." : "...");
-			if (source.getEntity() instanceof PlayerEntity)
+			if (source.getEntity() instanceof PlayerEntity && !(source.getMinecraftServer() instanceof DedicatedServer))
 				source.getPlayer().sendChatMessage(new TranslatableComponent("commands.locatebiome.scanning", dots), ChatMessageType.GAME_INFO);
 			if (i == 9216) {
 				previous++;
@@ -90,7 +85,7 @@ class LocateBiomeCommand {
 			i++;
 			if (world.getBiome(pos).equals(biomeToFind)) {
 				pos.close();
-				if (source.getEntity() instanceof PlayerEntity)
+				if (source.getEntity() instanceof PlayerEntity && !(source.getMinecraftServer() instanceof DedicatedServer))
 					source.getPlayer().sendChatMessage(new TranslatableComponent("commands.locatebiome.found", new TranslatableComponent(biomeToFind.getTranslationKey()), (System.currentTimeMillis() - start) / 1000), ChatMessageType.GAME_INFO);
 				return new BlockPos((int) x, 0, (int) z);
 			}
