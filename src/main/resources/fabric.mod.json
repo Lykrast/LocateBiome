@@ -1,0 +1,22 @@
+{
+	"schemaVersion": 1,
+	"id": "locatebiome",
+	"version": "${version}",
+	"name": "LocateBiome",
+	"description": "Adds command that give you ability to locate a biome.",
+	"authors": ["Dinolek", "Prospector"],
+	"license": "MIT",
+	"contact": {
+		"homepage": "https://minecraft.curseforge.com/projects/locatebiome",
+		"issues": "https://github.com/Dinolek/LocateBiome/issues"
+	},
+	"icon": "assets/locatebiome/icon.png",
+	"environment": "*",
+	"depends": {
+		"fabricloader": ">=0.4.0",
+		"fabric-commands-v0": ">=0.1.0"
+	},
+	"entrypoints": {
+		"main": ["pl.locatebiome.LocateBiome"]
+	}
+}

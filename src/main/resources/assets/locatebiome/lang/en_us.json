@@ -1,0 +1,5 @@
+{
+  "commands.locatebiome.fail": "Biome %s could not be found after %ss",
+  "commands.locatebiome.scanning": "Scanning%s",
+  "commands.locatebiome.found": "Found %s after %ss"
+}
