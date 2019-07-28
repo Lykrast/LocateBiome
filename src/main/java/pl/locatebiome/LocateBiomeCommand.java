@@ -1,37 +1,43 @@
 package pl.locatebiome;
 
+import java.util.Objects;
+
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
-
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
-import net.minecraft.ChatFormat;
+
+import net.minecraft.command.CommandSource;
+import net.minecraft.command.Commands;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.network.chat.*;
-import net.minecraft.server.command.CommandManager;
-import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.dedicated.DedicatedServer;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.registry.Registry;
+import net.minecraft.util.text.ChatType;
+import net.minecraft.util.text.ITextComponent;
+import net.minecraft.util.text.Style;
+import net.minecraft.util.text.TextComponentUtils;
+import net.minecraft.util.text.TextFormatting;
+import net.minecraft.util.text.TranslationTextComponent;
+import net.minecraft.util.text.event.ClickEvent;
+import net.minecraft.util.text.event.HoverEvent;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.Biome;
-
-import java.util.Objects;
+import net.minecraftforge.registries.ForgeRegistries;
 
 class LocateBiomeCommand {
-	static void register(CommandDispatcher<ServerCommandSource> commandDispatcher_1) {
-		LiteralArgumentBuilder<ServerCommandSource> builder = CommandManager.literal("locatebiome").requires((serverCommandSource_1) ->
-				serverCommandSource_1.hasPermissionLevel(2));
-		Registry.BIOME.stream().forEach(biome -> builder.then(CommandManager.literal(Objects.requireNonNull(Registry.BIOME.getId(biome)).toString())
+	static void register(CommandDispatcher<CommandSource> commandDispatcher_1) {
+		LiteralArgumentBuilder<CommandSource> builder = Commands.literal("locatebiome").requires((CommandSource_1) ->
+				CommandSource_1.hasPermissionLevel(2));
+		ForgeRegistries.BIOMES.getValues().stream().forEach(biome -> builder.then(Commands.literal(Objects.requireNonNull(biome.getRegistryName()).toString())
 				.executes(context -> execute(context.getSource(), biome))));
 		commandDispatcher_1.register(builder);
 	}
 
-	private static int execute(ServerCommandSource source, Biome biome) {
+	private static int execute(CommandSource source, Biome biome) {
 		new Thread(() -> {
-			BlockPos executorPos = new BlockPos(source.getPosition());
+			BlockPos executorPos = new BlockPos(source.getPos());
 			BlockPos biomePos = null;
-			TranslatableComponent biomeName = new TranslatableComponent(biome.getTranslationKey());
+			TranslationTextComponent biomeName = new TranslationTextComponent(biome.getTranslationKey());
 			try {
 				biomePos = spiralOutwardsLookingForBiome(source, source.getWorld(), biome, executorPos.getX(), executorPos.getZ());
 			} catch (CommandSyntaxException e) {
@@ -39,30 +45,30 @@ class LocateBiomeCommand {
 			}
 
 			if (biomePos == null) {
-				source.sendFeedback(new TranslatableComponent(source.getMinecraftServer() instanceof DedicatedServer ? "optimizeWorld.stage.failed" : "commands.locatebiome.fail",
-						biomeName, LocateBiome.timeout / 1000).applyFormat(ChatFormat.RED), true);
+				source.sendFeedback(new TranslationTextComponent(source.getServer() instanceof DedicatedServer ? "optimizeWorld.stage.failed" : "commands.locatebiome.fail",
+						biomeName, LocateBiome.timeout / 1000).applyTextStyles(TextFormatting.RED), true);
 				return;
 			}
 			BlockPos finalBiomePos = biomePos;
-			source.getMinecraftServer().execute(() -> {
+			source.getServer().execute(() -> {
 				int distance = MathHelper.floor(getDistance(executorPos.getX(), executorPos.getZ(), finalBiomePos.getX(), finalBiomePos.getZ()));
-				Component coordinates = Components.bracketed(new TranslatableComponent("chat.coordinates", finalBiomePos.getX(), "~",
-						finalBiomePos.getZ())).setStyle(new Style().setColor(ChatFormat.GREEN)
+				ITextComponent coordinates = TextComponentUtils.wrapInSquareBrackets(new TranslationTextComponent("chat.coordinates", finalBiomePos.getX(), "~",
+						finalBiomePos.getZ())).setStyle(new Style().setColor(TextFormatting.GREEN)
 								.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/tp @s " + finalBiomePos.getX() + " ~ " + finalBiomePos.getZ()))
-								.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TranslatableComponent("chat.coordinates.tooltip"))));
-				source.sendFeedback(new TranslatableComponent("commands.locate.success", biomeName, coordinates, distance), true);
+								.setHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new TranslationTextComponent("chat.coordinates.tooltip"))));
+				source.sendFeedback(new TranslationTextComponent("commands.locate.success", biomeName, coordinates, distance), true);
 			});
 		}).start();
 		return 0;
 	}
 
-	private static BlockPos spiralOutwardsLookingForBiome(ServerCommandSource source, World world, Biome biomeToFind, double startX, double startZ) throws CommandSyntaxException {
+	private static BlockPos spiralOutwardsLookingForBiome(CommandSource source, World world, Biome biomeToFind, double startX, double startZ) throws CommandSyntaxException {
 		double a = 16 / Math.sqrt(Math.PI);
 		double b = 2 * Math.sqrt(Math.PI);
 		double x, z;
 		double dist = 0;
 		long start = System.currentTimeMillis();
-		BlockPos.PooledMutable pos = BlockPos.PooledMutable.get();
+		BlockPos.PooledMutableBlockPos pos = BlockPos.PooledMutableBlockPos.retain();
 		int previous = 0;
 		int i = 0;
 		for (int n = 0; dist < Integer.MAX_VALUE; ++n) {
@@ -72,12 +78,12 @@ class LocateBiomeCommand {
 			dist = a * rootN;
 			x = startX + (dist * Math.sin(b * rootN));
 			z = startZ + (dist * Math.cos(b * rootN));
-			pos.set(x, 0, z);
+			pos.setPos(x, 0, z);
 			if (previous == 3)
 				previous = 0;
 			String dots = (previous == 0 ? "." : previous == 1 ? ".." : "...");
-			if (source.getEntity() instanceof PlayerEntity && !(source.getMinecraftServer() instanceof DedicatedServer))
-				source.getPlayer().sendChatMessage(new TranslatableComponent("commands.locatebiome.scanning", dots), ChatMessageType.GAME_INFO);
+			if (source.getEntity() instanceof PlayerEntity && !(source.getServer() instanceof DedicatedServer))
+				source.asPlayer().sendMessage(new TranslationTextComponent("commands.locatebiome.scanning", dots), ChatType.GAME_INFO);
 			if (i == 9216) {
 				previous++;
 				i = 0;
@@ -85,8 +91,8 @@ class LocateBiomeCommand {
 			i++;
 			if (world.getBiome(pos).equals(biomeToFind)) {
 				pos.close();
-				if (source.getEntity() instanceof PlayerEntity && !(source.getMinecraftServer() instanceof DedicatedServer))
-					source.getPlayer().sendChatMessage(new TranslatableComponent("commands.locatebiome.found", new TranslatableComponent(biomeToFind.getTranslationKey()), (System.currentTimeMillis() - start) / 1000), ChatMessageType.GAME_INFO);
+				if (source.getEntity() instanceof PlayerEntity && !(source.getServer() instanceof DedicatedServer))
+					source.asPlayer().sendMessage(new TranslationTextComponent("commands.locatebiome.found", new TranslationTextComponent(biomeToFind.getTranslationKey()), (System.currentTimeMillis() - start) / 1000), ChatType.GAME_INFO);
 				return new BlockPos((int) x, 0, (int) z);
 			}
 		}
