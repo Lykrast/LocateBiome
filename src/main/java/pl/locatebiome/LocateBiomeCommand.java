@@ -28,7 +28,7 @@ class LocateBiomeCommand {
 	static void register(CommandDispatcher<CommandSource> commandDispatcher_1) {
 		LiteralArgumentBuilder<CommandSource> builder = Commands.literal("locatebiome").requires((CommandSource_1) ->
 				CommandSource_1.hasPermissionLevel(2));
-		ForgeRegistries.BIOMES.getValues().stream().forEach(biome -> builder.then(Commands.literal(Objects.requireNonNull(biome.getRegistryName()).toString())
+		ForgeRegistries.BIOMES.getValues().forEach(biome -> builder.then(Commands.literal(Objects.requireNonNull(biome.getRegistryName()).toString())
 				.executes(context -> execute(context.getSource(), biome))));
 		commandDispatcher_1.register(builder);
 	}
